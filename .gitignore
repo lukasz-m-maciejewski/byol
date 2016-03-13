@@ -3,3 +3,8 @@ hello_world
 infixy
 parsing
 prompt
+bin/*
+CMakeFiles/*
+cmake_install.cmake
+CMakeCache.txt
+Makefile
