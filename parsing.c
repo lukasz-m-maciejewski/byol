@@ -4,30 +4,37 @@
 #include <editline/readline.h>
 
 #include "mpc.h"
+#include "lval.h"
 
-long eval(mpc_ast_t* t);
-long eval_op(long x, char* op, long y);
+lval eval(mpc_ast_t* t);
+lval eval_op(lval x, char* op, lval y);
 
-int main(int argc, char** argv) {
-    puts("Lispy Version 0.0.1");
+int main() {
+    puts("Lispy Version 0.0.6");
     puts("Press Ctrl+c to Exit\n");
 
     mpc_parser_t* Integer = mpc_new("integer");
-    mpc_parser_t* Double = mpc_new("Double");
+    mpc_parser_t* Double = mpc_new("double");
     mpc_parser_t* Number = mpc_new("number");
-    mpc_parser_t* Operator = mpc_new("operator");
+    mpc_parser_t* Symbol = mpc_new("symbol");
+    mpc_parser_t* Sexpr = mpc_new("sexpr");
+    mpc_parser_t* Qexpr = mpc_new("qexpr");
     mpc_parser_t* Expr = mpc_new("expr");
     mpc_parser_t* Lispy = mpc_new("lispy");
 
     mpca_lang(MPCA_LANG_DEFAULT,
         "         \
-          integer  : /-?[0-9]+/ ;                            \
-          double   : /-?[0-9]+\\.[0-9]+/ ;                   \
-          number   : <integer> ;                  \
-          operator : '+' | '-' | '*' | '/' | \"div\" ;       \
-          expr     : <number> | '(' <operator> <expr>+ ')' ; \
-          lispy    : /^/ <operator> <expr>+ /$/ ;  ",
-              Integer, Double, Number, Operator, Expr, Lispy);
+          integer : /-?[0-9]+/ ;                      \
+          double  : /-?[0-9]+\\.[0-9]+/ ;             \
+          number  : <integer> ;                       \
+          symbol  : \"list\" | \"head\" | \"tail\"    \
+                  | \"join\" | \"eval\"               \
+                  | '+' | '-' | '*' | '/' | \"div\" ; \
+          sexpr   : '(' <expr>* ')' ;                 \
+          qexpr   : '{' <expr>* '}' ;                 \
+          expr    : <number> | <symbol> | <sexpr> | <qexpr> ; \
+          lispy   : /^/ <expr>* /$/ ;  ",
+              Integer, Double, Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
 
     while (1) {
         char* input = readline("lispy> ");
@@ -36,8 +43,16 @@ int main(int argc, char** argv) {
         mpc_result_t r;
         if (mpc_parse("<stdin>", input, Lispy, &r)) {
             mpc_ast_print(r.output);
-            long result = eval(r.output);
-            printf("lispout> %li\n", result);
+            //lval result = eval(r.output);
+            printf("out> ");
+            //lval_println(result);
+            lval* x = lval_read(r.output);
+            lval_println(x);
+            printf("res> ");
+            x = lval_eval(x);
+
+            lval_println(x);
+            lval_del(x);
             mpc_ast_delete(r.output);
         } else {
             mpc_err_print(r.error);
@@ -47,32 +62,6 @@ int main(int argc, char** argv) {
         free(input);
     }
 
-    mpc_cleanup(6, Integer, Double, Number, Operator, Expr, Lispy);
+    mpc_cleanup(8, Integer, Double, Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
     return 0;
 }
-
-long eval(mpc_ast_t* t) {
-    if (strstr(t->tag, "number")) {
-        return atoi(t->contents);
-    }
-
-    char* op = t->children[1]->contents;
-
-    long x = eval(t->children[2]);
-
-    int i = 3;
-    while (strstr(t->children[i]->tag, "expr")) {
-        x = eval_op(x, op, eval(t->children[i]));
-        i++;
-    }
-
-    return x;
-}
-
-long eval_op(long x, char* op, long y) {
-    if (strcmp(op, "+") == 0) { return x + y; }
-    if (strcmp(op, "-") == 0) { return x - y; }
-    if (strcmp(op, "*") == 0) { return x * y; }
-    if (strcmp(op, "/") == 0) { return x / y; }
-    return 0;
- }
