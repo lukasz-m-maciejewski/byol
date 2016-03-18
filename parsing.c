@@ -28,7 +28,8 @@ int main() {
           double  : /-?[0-9]+\\.[0-9]+/ ;             \
           number  : <integer> ;                       \
           symbol  : \"list\" | \"head\" | \"tail\"    \
-                  | \"join\" | \"eval\"               \
+                  | \"join\" | \"eval\" | \"cons\"    \
+                  | \"len\"  |  \"init\"              \
                   | '+' | '-' | '*' | '/' | \"div\" ; \
           sexpr   : '(' <expr>* ')' ;                 \
           qexpr   : '{' <expr>* '}' ;                 \

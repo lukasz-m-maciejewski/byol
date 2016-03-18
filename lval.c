@@ -156,8 +156,10 @@ lval* lval_eval(lval* v) {
 
 lval* lval_pop(lval* v, int i) {
     lval* x = v->cell[i];
-    memmove(&v->cell[i], &v->cell[i + 1],
-            sizeof(lval*) * (v->count - i - 1));
+    if (i + 1 < v->count) {
+        memmove(&v->cell[i], &v->cell[i + 1],
+                sizeof(lval*) * (v->count - i - 1));
+    }
     v->count--;
     v->cell = realloc(v->cell, sizeof(lval*) * v->count);
     return x;
@@ -184,8 +186,12 @@ lval* builtin(lval* a, char* func) {
     if (strcmp("tail", func) == 0) { return builtin_tail(a); }
     if (strcmp("join", func) == 0) { return builtin_join(a); }
     if (strcmp("eval", func) == 0) { return builtin_eval(a); }
-    if (strstr("+-/*", func) == 0) { return builtin_op(a, func); }
+    if (strcmp("cons", func) == 0) { return builtin_cons(a); }
+    if (strcmp("len", func) == 0) { return builtin_len(a); }
+    if (strcmp("init", func) == 0) { return builtin_init(a); }
+    if (strstr("+-/*", func)) { return builtin_op(a, func); }
     lval_del(a);
+
     return lval_err("Unknown Function!");
 }
 
@@ -249,6 +255,41 @@ lval* builtin_eval(lval* a) {
     lval* x = lval_take(a, 0);
     x->type = LVAL_SEXPR;
     return lval_eval(x);
+}
+
+lval* builtin_cons(lval* a) {
+    LASSERT(a, a->count == 2,
+            "Function 'cons' passed incorrect number of arguments!");
+    LASSERT(a, a->cell[1]->type == LVAL_QEXPR,
+            "Second argument of cons should be a qexpr!");
+
+    lval* x = lval_qexpr();
+    x = lval_add(x, lval_pop(a, 0));
+    x = lval_join(x, lval_pop(a,0));
+
+    lval_del(a);
+    return x;
+}
+
+lval* builtin_len(lval* a) {
+    LASSERT(a, a->count == 1,
+            "Function 'len' passed too many arguments!");
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
+            "Function 'len' passed incorrect type!");
+
+    lval* x = lval_num(a->cell[0]->count);
+    lval_del(a);
+    return x;
+}
+lval* builtin_init(lval* a) {
+    LASSERT(a, a->count == 1,
+            "Function 'init' passed too many arguments!");
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
+            "Function 'init' passed incorrect type!");
+    int endIndex = a->cell[0]->count;
+    if (endIndex > 0)
+        lval_del(lval_pop(a, endIndex - 1));
+    return a;
 }
 
 lval* builtin_op(lval* a, char* op) {
