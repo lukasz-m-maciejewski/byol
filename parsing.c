@@ -24,18 +24,18 @@ int main() {
 
     mpca_lang(MPCA_LANG_DEFAULT,
         "         \
-          integer : /-?[0-9]+/ ;                      \
-          double  : /-?[0-9]+\\.[0-9]+/ ;             \
-          number  : <integer> ;                       \
-          symbol  : \"list\" | \"head\" | \"tail\"    \
-                  | \"join\" | \"eval\" | \"cons\"    \
-                  | \"len\"  |  \"init\"              \
-                  | '+' | '-' | '*' | '/' | \"div\" ; \
-          sexpr   : '(' <expr>* ')' ;                 \
-          qexpr   : '{' <expr>* '}' ;                 \
+          integer : /-?[0-9]+/ ;                              \
+          double  : /-?[0-9]+\\.[0-9]+/ ;                     \
+          number  : <integer> ;                               \
+          symbol  : /[a-zA-Z0-9_+\\-*\\/\\\\=<>!&]+/ ;        \
+          sexpr   : '(' <expr>* ')' ;                         \
+          qexpr   : '{' <expr>* '}' ;                         \
           expr    : <number> | <symbol> | <sexpr> | <qexpr> ; \
           lispy   : /^/ <expr>* /$/ ;  ",
               Integer, Double, Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
+
+    lenv* e = lenv_new();
+    lenv_add_builtins(e);
 
     while (1) {
         char* input = readline("lispy> ");
@@ -50,7 +50,7 @@ int main() {
             lval* x = lval_read(r.output);
             lval_println(x);
             printf("res> ");
-            x = lval_eval(x);
+            x = lval_eval(e, x);
 
             lval_println(x);
             lval_del(x);
@@ -63,6 +63,7 @@ int main() {
         free(input);
     }
 
+    lenv_del(e);
     mpc_cleanup(8, Integer, Double, Number, Symbol, Sexpr, Qexpr, Expr, Lispy);
     return 0;
 }
