@@ -33,8 +33,15 @@ char* ltype_name(int t) {
     case LVAL_SYM: return "Symbol";
     case LVAL_SEXPR: return "S-Expression";
     case LVAL_QEXPR: return "Q-Expression";
+    case LVAL_EXIT: return "Exit";
     default: return "Unknown";
     }
+}
+
+lval* lval_exit(void) {
+    lval* v = malloc(sizeof(lval));
+    v->type = LVAL_EXIT;
+    return v;
 }
 
 lval* lval_err(char* fmt, ...) {
@@ -103,7 +110,12 @@ lval* lval_lambda(lval* formals, lval* body) {
 
 lval* lval_read(mpc_ast_t* t) {
     if (strstr(t->tag, "number")) { return lval_read_num(t); }
-    if (strstr(t->tag, "symbol")) { return lval_sym(t->contents); }
+    if (strstr(t->tag, "symbol")) {
+        if (strcmp(t->contents, "exit") != 0)
+            return lval_sym(t->contents);
+        else
+            return lval_exit();
+    }
 
     lval* x = NULL;
     if (strcmp(t->tag, ">") == 0) { x = lval_sexpr(); }
@@ -166,6 +178,7 @@ void lval_print(lval* v) {
         break;
     case LVAL_SEXPR: lval_expr_print(v, '(', ')'); break;
     case LVAL_QEXPR: lval_expr_print(v, '{', '}'); break;
+    case LVAL_EXIT: printf("Exiting... Bye!"); break;
     }
 }
 
@@ -280,7 +293,7 @@ lval* lval_eval_sexpr(lenv* e, lval* v) {
 
     lval* f = lval_pop(v, 0);
     if (f->type != LVAL_FUN) {
-        lval* err = lval_err("S-Expression starts with incorrect type."
+        lval* err = lval_err("S-Expression starts with incorrect type. "
                              "Got %s, Expected %s.",
                              ltype_name(f->type),
                              ltype_name(LVAL_FUN));
@@ -296,8 +309,9 @@ lval* lval_eval_sexpr(lenv* e, lval* v) {
 }
 
 lval* lval_eval(lenv* e, lval* v) {
+    lval* x = v;
     if (v->type == LVAL_SYM) {
-        lval* x = lenv_get(e, v);
+        x = lenv_get(e, v);
         lval_del(v);
         return x;
     }
@@ -370,6 +384,36 @@ lval* lval_copy(lval* v) {
     }
 
     return x;
+}
+
+int lval_eq(lval* x, lval* y) {
+    if (x->type != y->type) { return 0; }
+
+    switch (x->type) {
+    case LVAL_NUM: return (x->num == y->num);
+    case LVAL_ERR: return (strcmp(x->err, y->err) == 0);
+    case LVAL_SYM: return (strcmp(x->sym, y->sym) == 0);
+    case LVAL_FUN:
+        if (x->builtin || y->builtin) {
+            return x->builtin == y->builtin;
+        } else {
+            return lval_eq(x->formals, y->formals)
+                && lval_eq(x->body, y->body);
+        }
+    }
+}
+
+lval* builtin_cmp(lenv* e, lval* a, char* op) {
+    LASSERT_NUM(op, a, 2);
+    int r;
+    if (strcmp(op, "==") == 0) {
+        r = lval_eq(a->cell[0], a->cell[1]);
+    }
+    if (strcmp(op, "!=") == 0) {
+        r = !lval_eq(a->cell[0], a->cell[1]);
+    }
+    lval_del(a);
+    return lval_num(r);
 }
 
 lval* builtin_list(lenv* e, lval* a) {
@@ -589,6 +633,48 @@ lval* builtin_lambda(lenv* e, lval* a) {
     return lval_lambda(formals, body);
 }
 
+lval* builtin_exit(lenv* e, lval* a) {
+    return lval_exit();
+}
+
+lval* builtin_gt(lenv* e, lval* a) {
+    return builtin_ord(e, a, ">");
+}
+
+lval* builtin_lt(lenv* e, lval* a) {
+    return builtin_ord(e, a, "<");
+}
+
+lval* builtin_ge(lenv* e, lval* a) {
+    return builtin_ord(e, a, ">=");
+}
+
+lval* builtin_le(lenv* e, lval* a) {
+    return builtin_ord(e, a, "<=");
+}
+
+lval* builtin_ord(lenv* e, lval* a, char* op) {
+    LASSERT_NUM(op, a, 2);
+    LASSERT_TYPE(op, a, 0, LVAL_NUM);
+    LASSERT_TYPE(op, a, 1, LVAL_NUM);
+
+    int r;
+    if (strcmp(op, ">") == 0) {
+        r = (a->cell[0]->num > a->cell[1]->num);
+    }
+    if (strcmp(op, "<") == 0) {
+        r = (a->cell[0]->num < a->cell[1]->num);
+    }
+    if (strcmp(op, ">=") == 0) {
+        r = (a->cell[0]->num >= a->cell[1]->num);
+    }
+    if (strcmp(op, "<=") == 0) {
+        r = (a->cell[0]->num <= a->cell[1]->num);
+    }
+    lval_del(a);
+    return lval_num(r);
+}
+
 lenv* lenv_new(void) {
     lenv* e = malloc(sizeof(lenv));
     e->par = NULL;
@@ -689,4 +775,5 @@ void lenv_add_builtins(lenv* e) {
     lenv_add_builtin(e, "def", builtin_def);
     lenv_add_builtin(e, "=", builtin_put);
     lenv_add_builtin(e, "\\", builtin_lambda);
+    lenv_add_builtin(e, "exit", builtin_exit);
 }

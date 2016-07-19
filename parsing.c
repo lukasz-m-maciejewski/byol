@@ -9,6 +9,8 @@
 lval eval(mpc_ast_t* t);
 lval eval_op(lval x, char* op, lval y);
 
+volatile int getNext = 1;
+
 int main() {
     puts("Lispy Version 0.0.6");
     puts("Press Ctrl+c to Exit\n");
@@ -37,7 +39,7 @@ int main() {
     lenv* e = lenv_new();
     lenv_add_builtins(e);
 
-    while (1) {
+    while (getNext) {
         char* input = readline("lispy> ");
         add_history(input);
 
@@ -51,6 +53,11 @@ int main() {
             lval_println(x);
             printf("res> ");
             x = lval_eval(e, x);
+
+            if (x->type == LVAL_EXIT) {
+                printf("???\n");
+                getNext = 0;
+            }
 
             lval_println(x);
             lval_del(x);

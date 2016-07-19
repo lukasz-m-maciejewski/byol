@@ -32,7 +32,7 @@ struct lenv {
 };
 
 
-enum { LVAL_ERR, LVAL_NUM, LVAL_SYM, LVAL_FUN, LVAL_SEXPR, LVAL_QEXPR };
+enum { LVAL_ERR, LVAL_NUM, LVAL_SYM, LVAL_FUN, LVAL_SEXPR, LVAL_QEXPR, LVAL_EXIT };
 enum { LERR_DIV_ZERO, LERR_BAD_OP, LERR_BAD_NUM };
 
 char* ltype_name(int t);
@@ -43,6 +43,7 @@ lval* lval_sym(char* s);
 lval* lval_fun(lbuiltin func);
 lval* lval_sexpr(void);
 lval* lval_qexpr(void);
+lval* lval_exit(void);
 lval* lval_lambda(lval* formals, lval* body);
 lval* lval_read(mpc_ast_t* t);
 lval* lval_read_num(mpc_ast_t* t);
@@ -78,6 +79,8 @@ lval* builtin_def(lenv* e, lval* a);
 lval* builtin_put(lenv* e, lval* a);
 lval* builtin_var(lenv* e, lval* a, char* func);
 lval* builtin_lambda(lenv* e, lval* a);
+lval* builtin_exit(lenv* e, lval* a);
+lval* builtin_ord(lenv* e, lval* a, char* op);
 
 lenv* lenv_new(void);
 lenv* lenv_copy(lenv* e);
